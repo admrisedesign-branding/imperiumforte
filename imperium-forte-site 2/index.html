@@ -1116,7 +1116,10 @@
     color: var(--gray-300);
   }
   section.section-white .calc-result .total {
-    color: var(--red);
+    color: #4CAF50;
+  }
+  section.section-white .calc-result .total-lbl {
+    color: var(--gray-300);
   }
   section.section-white .calc-result .btn-primary {
     background: var(--red);
@@ -1285,12 +1288,78 @@
     text-transform: uppercase;
   }
   .calc-result .total {
-    font-size: 28px;
+    font-size: 32px;
     font-weight: 700;
-    color: var(--red);
-    margin-bottom: 24px;
+    color: #4CAF50;
+    margin-bottom: 4px;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  .calc-result .total-lbl {
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--gray-500);
+    font-weight: 600;
+    margin-bottom: 20px;
+  }
+
+  /* Bloco de comparação na calculadora */
+  .calc-compare {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin-bottom: 22px;
+    text-align: left;
+  }
+  .calc-compare-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 7px 0;
+  }
+  .calc-compare-row + .calc-compare-row {
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+  .calc-compare-lbl {
+    font-size: 12px;
+    color: rgba(255,255,255,0.7);
+    letter-spacing: 0.2px;
+  }
+  .calc-compare-val {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .calc-compare-val.val-red { color: #FF5C6E; }
+  .calc-compare-val.val-yellow { color: #F5B700; }
+  .calc-compare-economia {
+    text-align: center;
+    margin-top: 4px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(245, 183, 0, 0.25);
+  }
+  .calc-compare-economia .save-lbl {
+    font-size: 10px;
+    letter-spacing: 1.8px;
+    text-transform: uppercase;
+    color: rgba(245, 183, 0, 0.85);
+    font-weight: 700;
+    margin-bottom: 2px;
+  }
+  .calc-compare-economia .save-val {
+    font-size: 22px;
+    font-weight: 800;
+    color: #F5B700;
     letter-spacing: -0.02em;
   }
+  .calc-compare-economia .save-pct {
+    font-size: 11px;
+    color: rgba(255,255,255,0.55);
+    margin-top: 2px;
+  }
+
   .calc-result .btn-primary {
     background: var(--black);
     color: var(--white);
@@ -2803,7 +2872,23 @@
         <div class="label">Você vai precisar de</div>
         <div class="result-big" id="calcSacos">38</div>
         <div class="result-unit">sacos de 20kg</div>
+
         <div class="total" id="calcTotal">R$ 1.478,20</div>
+        <div class="total-lbl">Total Imperium Forte</div>
+
+        <!-- Bloco de comparação -->
+        <div class="calc-compare">
+          <div class="calc-compare-row">
+            <span class="calc-compare-lbl">Cimento comum equivalente</span>
+            <span class="calc-compare-val val-red" id="calcComum">R$ 1.842,15</span>
+          </div>
+          <div class="calc-compare-economia">
+            <div class="save-lbl">💰 Sua economia</div>
+            <div class="save-val" id="calcEconomia">R$ 363,95</div>
+            <div class="save-pct" id="calcEconomiaPct">~20% mais barato</div>
+          </div>
+        </div>
+
         <a href="#form" class="btn-primary" id="calcCTA" onclick="goToFormFromCalc(event)">Orçamento no WhatsApp ↗</a>
       </div>
     </div>
@@ -3669,6 +3754,11 @@
   const PRECO_SACO = 38.90;
   const PESO_SACO = 20; // kg
 
+  // Fator de comparação com cimento comum
+  // Considera: cimento 50kg + areia + brita + 15% desperdício + mão de obra de mistura
+  // = ~25% mais caro que o Imperium pronto, no equivalente final
+  const FATOR_CIMENTO_COMUM = 1.25;
+
   // Taxa de consumo por aplicação (kg/m² ou kg/m³)
   // baseada em referências técnicas para argamassa/concreto pronto
   const CONSUMO = {
@@ -3687,6 +3777,10 @@
     'assentamento': 'imperium_mix'
   };
 
+  function formatBRL(v) {
+    return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  }
+
   function calcularConsumo() {
     const tipo = document.getElementById('calcTipo').value;
     const area = parseFloat(document.getElementById('calcArea').value) || 0;
@@ -3695,6 +3789,9 @@
     if (area <= 0 || espessura <= 0) {
       document.getElementById('calcSacos').textContent = '—';
       document.getElementById('calcTotal').textContent = 'R$ 0,00';
+      document.getElementById('calcComum').textContent = 'R$ 0,00';
+      document.getElementById('calcEconomia').textContent = 'R$ 0,00';
+      document.getElementById('calcEconomiaPct').textContent = '';
       return;
     }
 
@@ -3706,11 +3803,16 @@
     const sacos = Math.ceil((kgTotal * 1.05) / PESO_SACO);
     const total = sacos * PRECO_SACO;
 
+    // Equivalente em cimento comum (considera material + mão de obra + desperdício)
+    const totalComum = total * FATOR_CIMENTO_COMUM;
+    const economia = totalComum - total;
+    const economiaPct = Math.round((economia / totalComum) * 100);
+
     document.getElementById('calcSacos').textContent = sacos;
-    document.getElementById('calcTotal').textContent = total.toLocaleString('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    });
+    document.getElementById('calcTotal').textContent = formatBRL(total);
+    document.getElementById('calcComum').textContent = formatBRL(totalComum);
+    document.getElementById('calcEconomia').textContent = formatBRL(economia);
+    document.getElementById('calcEconomiaPct').textContent = `~${economiaPct}% mais barato`;
 
     // Guarda os valores num atributo do CTA pra usar quando clicar
     const cta = document.getElementById('calcCTA');
